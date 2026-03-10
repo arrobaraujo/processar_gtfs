@@ -1,13 +1,21 @@
 pacman::p_load(gtfstools, dplyr, Hmisc, sf, data.table, googlesheets4)
 
-ano_gtfs <- '2023'
-mes_gtfs <- '06'
+ano_gtfs <- '2025'
+mes_gtfs <- '03'
 quinzena_gtfs <- '02'
 
-endereco_gtfs_combi <- paste0("../../dados/gtfs/",ano_gtfs,"/gtfs_combi",
-                              "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.zip")
+endereco_gtfs_combi <- paste0("../../dados/gtfs/", ano_gtfs, "/gtfs_rio-de-janeiro_pub.zip")
+
+gs4_auth("erickaraujo.smtr@gmail.com")
 
 gtfs <- read_gtfs(endereco_gtfs_combi)
+
+#trips_desat <- gtfs$trips %>% 
+#  filter(service_id %like% 'EXCEP') %>% 
+#  pull(trip_id)
+
+#gtfs <- gtfs %>% 
+#  filter_by_trip_id(trips_desat, keep = F)
 
 trips_base_u_reg <- gtfs$trips %>% 
   filter(service_id == 'U_REG') %>% 
@@ -50,7 +58,7 @@ shapes <- convert_shapes_to_sf(gtfs) %>%
 
 shapes_por_linha <- as.data.frame(table(shapes$trip_short_name))
 
-descricao_desvios <- read_sheet("1L7Oq1vqG5S_uOs_NdqgF4HG-Ac6gEyZrzQJYLpZH3OI",'descricao_desvios') %>% 
+descricao_desvios <- read_sheet("1QYSf_E7HrDcSDVVaF_KrolS-LRL3kTF5WnhQGh3RMy0",'descricao_desvios') %>% 
   select(cod_desvio,descricao_desvio,data_inicio,data_fim)
 
 trips_join <- gtfs$trips %>% 
@@ -84,18 +92,34 @@ pasta_shape_sppo <- paste0("../../dados/shapes/",ano_gtfs)
 ifelse(!dir.exists(file.path(getwd(), pasta_shape_sppo)),
        dir.create(file.path(getwd(), pasta_shape_sppo),recursive = T), FALSE)
 
-endereco_shape_sppo_shp <- paste0(pasta_shape_sppo,"/shapes",
-                              "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.shp")
+endereco_shape_sppo_trajetos_shp <- paste0(pasta_shape_sppo,"/shapes_trajetos",
+                                           "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.shp")
 
-endereco_shape_sppo_shp_datario <- paste0(pasta_shape_sppo,
-                                          "/itinerarios_onibus_rio.shp")
+#endereco_shape_sppo_trajetos_shp_datario <- paste0(pasta_shape_sppo,
+#                                                   "/trajetos_onibus_rio.shp")
 
-endereco_shape_sppo_gpkg <- paste0(pasta_shape_sppo,"/shapes",
-                                  "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.gpkg")
+endereco_shape_sppo_trajetos_gpkg <- paste0(pasta_shape_sppo,"/shapes_trajetos",
+                                            "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.gpkg")
 
-st_write(shapes_ext,endereco_shape_sppo_shp_datario,append = F)
+#st_write(shapes_ext,endereco_shape_sppo_trajetos_shp_datario,append = F)
 
-st_write(shapes_ext,endereco_shape_sppo_shp,append = F)
+st_write(shapes_ext,endereco_shape_sppo_trajetos_shp,append = F)
 
-st_write(shapes_ext,endereco_shape_sppo_gpkg,append = F)
+st_write(shapes_ext,endereco_shape_sppo_trajetos_gpkg,append = F)
 
+### Shapes para pontos de parada
+pontos_usados <- unique(gtfs$stop_times$stop_id)
+
+gtfs_filtrado <- filter_by_stop_id(gtfs,pontos_usados)
+
+pontos <- convert_stops_to_sf(gtfs_filtrado)
+
+endereco_shape_sppo_pontos_shp <- paste0(pasta_shape_sppo,"/shapes_pontos",
+                                         "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.shp")
+
+endereco_shape_sppo_pontos_gpkg <- paste0(pasta_shape_sppo,"/shapes_pontos",
+                                          "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.gpkg")
+
+st_write(pontos,endereco_shape_sppo_pontos_shp,append = F)
+
+st_write(pontos,endereco_shape_sppo_pontos_gpkg,append = F)

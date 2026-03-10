@@ -1,8 +1,8 @@
 pacman::p_load(gtfstools, dplyr, data.table, Hmisc)
 
-ano_gtfs <- "2023"
-mes_gtfs <- "07"
-quinzena_gtfs <- "01"
+ano_gtfs <- "2025"
+mes_gtfs <- "03"
+quinzena_gtfs <- "02"
 
 endereco_sppo <- file.path("../../dados/gtfs", ano_gtfs,
   paste0("sppo_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "Q_PROC.zip"))
@@ -12,6 +12,7 @@ gtfs_sppo <- read_gtfs(endereco_sppo)
 gtfs_sppo$routes <- as.data.table(gtfs_sppo$routes) %>%
   mutate(numero = as.integer(stringr::str_extract(route_short_name, "[0-9]+"))) %>%
   mutate(route_type = if_else(numero > 1000, "200", "700")) %>%
+  #mutate(route_type = if_else(route_short_name == "LECD71", "200", route_type)) %>% ###Para frescões que vier como LECD
   select(-c(numero))
 
 tarifas_frescao <- fread("../../dados/insumos/frescao/tarifas.csv") %>%
@@ -59,17 +60,30 @@ fare_rules <- fare_rules %>%
 
 gtfs_filt_sppo$fare_rules <- fare_rules
 
+gtfs_filt_sppo$trips <- gtfs_filt_sppo$trips %>%
+  mutate(service_id = if_else(service_id %in% c("U", "S", "D"), paste0(service_id, "_REG"), service_id))
+
+gtfs_filt_sppo$calendar <- gtfs_filt_sppo$calendar %>%
+  mutate(service_id = if_else(service_id %in% c("U", "S", "D"), paste0(service_id, "_REG"), service_id))
+
 endereco_brt <- file.path("../../dados/gtfs", ano_gtfs,
   paste0("brt_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "Q_PROC.zip"))
 
 gtfs_brt <- read_gtfs(endereco_brt)
 
 gtfs_brt$routes <- as.data.table(gtfs_brt$routes) %>%
-  mutate(route_type = "702")
+  mutate(
+    route_type = ifelse(grepl("EXEC", route_id), "200", "702")
+  )
+
+
+gtfs_brt$routes <- gtfs_brt$routes %>%
+  mutate(
+    fare_id = ifelse(grepl("EXEC", route_id), "BRT_Exec", "BRT")
+  )
 
 fare_rules <- as.data.table(gtfs_brt$routes) %>%
-  select(route_id) %>%
-  mutate(fare_id = "BRT")
+  select(fare_id, route_id)
 
 gtfs_brt$fare_rules <- fare_rules
 
@@ -85,7 +99,7 @@ gtfs_brt$trips <- gtfs_brt$trips %>%
 gtfs_brt$calendar <- gtfs_brt$calendar %>%
   mutate(service_id = if_else(service_id %in% c("U", "S", "D"), paste0(service_id, "_REG"), service_id))
 
-gtfs_brt$calendar_dates <- data.table()
+#gtfs_brt$calendar_dates <- data.table()
 gtfs_brt$feed_info <- data.table()
 
 gtfs_filt_brt <- filter_by_route_id(gtfs_brt, routes_usar_brt)
@@ -102,15 +116,16 @@ gtfs_combi$agency <- as.data.table(gtfs_combi$agency) %>%
   select(-c(agency_phone, agency_fare_url, agency_email, agency_branding_url))
 
 gtfs_combi$feed_info <- as.data.table(gtfs_combi$feed_info) %>%
-  select(-c(feed_version, default_lang, feed_contact_url, feed_id))
+  select(-c(default_lang, feed_contact_url, feed_id))
+  #select(-c(feed_version, default_lang, feed_contact_url, feed_id))
 
 gtfs_combi$routes <- as.data.table(gtfs_combi$routes) %>%
   select(-c(route_sort_order, continuous_pickup, route_branding_url, continuous_drop_off, route_url)) %>%
   mutate(route_color = case_when(
-    agency_id == "22002" ~ "FCC417",
-    agency_id == "22003" ~ "A2B71A",
-    agency_id == "22004" ~ "0C6FA8",
-    agency_id == "22005" ~ "E31919",
+    agency_id == "22002" ~ "DAAA00",
+    agency_id == "22003" ~ "79D600",
+    agency_id == "22004" ~ "279EE8",
+    agency_id == "22005" ~ "D22630",
     TRUE ~ route_color
   )) %>%
   mutate(route_color = if_else(route_type == 200, "030478", route_color)) %>%

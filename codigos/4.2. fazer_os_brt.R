@@ -1,37 +1,37 @@
 pacman::p_load(gtfstools, dplyr, data.table,sf,lubridate,gt,stringr,webshot2)
 
-ano_gtfs <- "2025"
-mes_gtfs <- "03"
+ano_gtfs <- "2024"
+mes_gtfs <- "11"
 quinzena_gtfs <- "02"
 
 endereco_gtfs <- file.path(
   "../../dados/gtfs", ano_gtfs,
-  paste0("sppo_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "Q_PROC.zip")
+  paste0("brt_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "Q_PROC.zip")
 )
 
 gtfs <- read_gtfs(endereco_gtfs)
 
-frescoes <- gtfs$routes %>% 
-  filter(route_type == '200') %>% 
-  pull(route_id)
+#frescoes <- gtfs$routes %>% 
+  #filter(route_type == '200') %>% 
+  #pull(route_id)
 
-gtfs <- filter_by_route_id(gtfs,frescoes,keep = F)
+#gtfs <- filter_by_route_id(gtfs,frescoes,keep = F)
 
-trips_fantasma <- fread("../../dados/insumos/trip_id_fantasma.txt") %>%
-  unlist()
+#trips_fantasma <- fread("../../dados/insumos/trip_id_fantasma.txt") %>%
+  #unlist()
 
-trips_desat <- gtfs$trips %>% 
-  filter(service_id %like% 'DESAT') %>% 
-  pull(trip_id)
+#trips_desat <- gtfs$trips %>% 
+  #filter(service_id %like% 'DESAT') %>% 
+  #pull(trip_id)
 
-trips_desat2 <- gtfs$trips %>% 
-  filter(service_id %like% 'EXCEP') %>% 
-  pull(trip_id)
+#trips_desat2 <- gtfs$trips %>% 
+  #filter(service_id %like% 'EXCEP') %>% 
+  #pull(trip_id)
 
-gtfs <- gtfs %>% 
-  filter_by_trip_id(trips_desat, keep = F) %>% 
-  filter_by_trip_id(trips_desat2, keep = F) %>% 
-  filter_by_trip_id(trips_fantasma, keep = F)
+#gtfs <- gtfs %>% 
+  #filter_by_trip_id(trips_desat, keep = F) %>% 
+  #filter_by_trip_id(trips_desat2, keep = F) %>% 
+  #filter_by_trip_id(trips_fantasma, keep = F)
 
 gtfs$shapes <- as.data.table(gtfs$shapes) %>% 
   group_by(shape_id) %>% 
@@ -86,7 +86,7 @@ viagens_freq <- gtfs$frequencies %>%
     partidas = as.numeric(duracao / headway_secs)
   ) %>% 
   left_join(select(gtfs$trips,trip_id,trip_short_name,trip_headsign,direction_id,service_id)) %>% 
-  filter(!(service_id %like% 'DESAT')) %>% 
+  #filter(!(service_id %like% 'DESAT')) %>% 
   mutate(circular = if_else(nchar(trip_headsign)==0,T,F)) %>% 
   mutate(tipo_dia = substr(service_id,1,1))
 
@@ -94,7 +94,7 @@ viagens_freq <- gtfs$frequencies %>%
 os_stop_times <- gtfs$stop_times %>% 
   filter(!(trip_id %in% viagens_freq$trip_id)) %>% 
   left_join(select(gtfs$trips,trip_id,trip_short_name,trip_headsign,direction_id,service_id)) %>% 
-  filter(!(service_id %like% 'DESAT')) %>% 
+  #filter(!(service_id %like% 'DESAT')) %>% 
   mutate(circular = if_else(nchar(trip_headsign)==0,T,F)) %>% 
   mutate(tipo_dia = substr(service_id,1,1)) %>% 
   filter(stop_sequence == '0') %>% 
@@ -151,6 +151,8 @@ os_freq <- viagens_freq %>%
                    fim = lubridate::force_tz(fim, "America/Sao_Paulo"))
 
 os_bruto <- bind_rows(os_freq,os_stop_times)
+
+###########
 
 pico_du <- os_bruto %>% 
   filter(tipo_dia == 'U') %>% 
@@ -288,4 +290,4 @@ nome_colunas <- c('Serviço','Vista','Consórcio','Extensão de Ida','Extensão 
 
 colnames(os_final) <- nome_colunas
 
-fwrite(os_final, paste0("C:/R_SMTR/dados/os/os_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, ".csv"),sep=';',dec=',')
+fwrite(os_final, paste0("C:/R_SMTR/dados/os/os_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "_brt.csv"),sep=';',dec=',')

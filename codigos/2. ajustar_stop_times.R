@@ -1,16 +1,18 @@
 pacman::p_load(dplyr, gtfstools, lubridate, bizdays, data.table, tidyverse, tibble, tidyr)
 
-ano_velocidade <- '2023'
-mes_velocidade <- '05'
+ano_velocidade <- '2024'
+mes_velocidade <- '03'
 
-ano_gtfs <- '2023'
-mes_gtfs <- '08'
-quinzena_gtfs <- '01'
+ano_gtfs <- '2025'
+mes_gtfs <- '03'
+quinzena_gtfs <- '02'
 
 gtfs_processar <- 'sppo'
 
 endereco_gtfs <- paste0("../../dados/gtfs/",ano_gtfs,"/",gtfs_processar,
                         "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q.zip")
+
+gtfs <- read_gtfs(endereco_gtfs)
 
 if (gtfs_processar == "brt") {
   path_nm <- paste0("../../dados/viagens/", gtfs_processar, "/", ano_velocidade, "/", mes_velocidade, "/validas")
@@ -34,7 +36,11 @@ if (gtfs_processar == "brt") {
   
   nm_frescao <- list.files(path=path_frescao, full.names = T, pattern = "*.csv",recursive = TRUE)
   
-  trips_frescao <- map_df(nm_frescao, fread) %>% 
+  fread_character <- function(file_path) {
+    fread(file_path, colClasses = c(servico = "character"))
+  }
+  
+  trips_frescao <- map_df(nm_frescao, fread_character) %>% 
     select(servico,direction_id,datetime_partida,datetime_chegada,distancia_planejada,data) %>% 
     mutate(data = as.Date(data)) %>% 
     mutate(distancia_planejada = distancia_planejada/1000)
@@ -113,13 +119,14 @@ velocidade_combinado <- rbindlist(list(vel_media_du,vel_media_sab,vel_media_dom)
   distinct(service_id,hora,.keep_all = T) %>% 
   rename(service_id_join = service_id)
 
-gtfs <- gtfstools::read_gtfs(endereco_gtfs)
+#gtfs <- gtfstools::read_gtfs(endereco_gtfs)
 
 colunas_originais <- colnames(gtfs$stop_times)
 
 stp_tms <- gtfs$stop_times %>% 
   left_join(select(gtfs$trips,trip_id,trip_short_name,direction_id,service_id)) %>% 
   left_join(select(gtfs$frequencies,trip_id,start_time)) %>% 
+  arrange(trip_id, stop_sequence) %>%
   group_by(trip_id) %>% 
   mutate(start_time = if_else(is.na(start_time),head(arrival_time,1),start_time),
          horario_inicio = as.ITime(head(arrival_time,1)),
@@ -158,4 +165,3 @@ endereco_gtfs_proc <- paste0("../../dados/gtfs/",ano_gtfs,"/",gtfs_processar,
                         "_",ano_gtfs,"-",mes_gtfs,"-",quinzena_gtfs,"Q_PROC.zip")
 
 write_gtfs(gtfs,endereco_gtfs_proc)
-

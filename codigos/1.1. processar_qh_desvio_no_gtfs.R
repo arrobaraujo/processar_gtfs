@@ -1,14 +1,13 @@
 # Este codigo pega quadros horarios ja armazenados no GTFS e retorna o quadro
 # de partidas, em formato pronto para importacao, apenas para as linhas e
 # servicos definidas neste codigo.
-#
 # Util para reimportar frequencias quando outro calendario for aplicado.
 
 pacman::p_load(gtfstools, dplyr, data.table, googlesheets4)
 
-ano_gtfs <- "2023"
-mes_gtfs <- "06"
-quinzena_gtfs <- "02"
+ano_gtfs <- "2024"
+mes_gtfs <- "10"
+quinzena_gtfs <- "01"
 
 end_gtfs <- paste0(
   "../../dados/gtfs/", ano_gtfs, "/sppo_", ano_gtfs, "-",
@@ -17,8 +16,10 @@ end_gtfs <- paste0(
 
 gtfs <- read_gtfs(end_gtfs)
 
+gs4_auth("erickaraujo.smtr@gmail.com")
+
 tabela_desvios <- read_sheet(
-  "1L7Oq1vqG5S_uOs_NdqgF4HG-Ac6gEyZrzQJYLpZH3OI",
+  "1QYSf_E7HrDcSDVVaF_KrolS-LRL3kTF5WnhQGh3RMy0",
   "linhas_desvios"
 )
 
@@ -43,7 +44,7 @@ calendarios <- pull(linhas_processar, service_id)
 qt <- seq_along(servicos)
 
 
-pasta_qh <- paste0("../../resultados/quadro_horario/", ano_gtfs, "/", mes_gtfs, "/qh_por_linha/")
+pasta_qh <- paste0("../../resultados/quadro_horario_extraido/", ano_gtfs, "/", mes_gtfs, "/qh_por_linha_desvio/")
 purrr::possibly(dir.create)(pasta_qh, recursive = TRUE)
 
 
@@ -81,4 +82,3 @@ separarQuadros <- function(servicos, vistas, calendarios) {
 }
 
 mapply(separarQuadros, servicos, vistas, calendarios)
-
