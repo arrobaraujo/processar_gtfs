@@ -6,7 +6,7 @@ pacman::p_load(gtfstools, dplyr, data.table, stringr, zip)
 
 ano_gtfs      <- "2026"
 mes_gtfs      <- "03"
-quinzena_gtfs <- "02"
+quinzena_gtfs <- "04"
 
 sufixo <- paste0(ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "Q")
 

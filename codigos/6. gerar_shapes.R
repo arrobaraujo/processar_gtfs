@@ -2,7 +2,7 @@ pacman::p_load(gtfstools, dplyr, sf, data.table, googlesheets4)
 
 ano_gtfs <- '2026'
 mes_gtfs <- '03'
-quinzena_gtfs <- '01'
+quinzena_gtfs <- '04'
 
 endereco_gtfs_combi <- paste0("../../dados/gtfs/", ano_gtfs, "/gtfs_rio-de-janeiro_pub.zip")
 

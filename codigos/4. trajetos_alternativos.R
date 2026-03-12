@@ -2,7 +2,7 @@ pacman::p_load(gtfstools, dplyr, data.table, sf, lubridate, gt, stringr, webshot
 
 ano_gtfs <- "2026"
 mes_gtfs <- "03"
-quinzena_gtfs <- "02"
+quinzena_gtfs <- "04"
 
 endereco_gtfs <- file.path(
   "../../dados/gtfs", ano_gtfs,
@@ -39,7 +39,7 @@ gtfs_desvio$shapes <- as.data.table(gtfs_desvio$shapes) %>%
 
 shapes_sf <- convert_shapes_to_sf(gtfs_desvio) %>% 
   st_transform(31983) %>% 
-  mutate(extensao = as.integer(st_length(.))) %>% 
+  mutate(extensao = as.numeric(st_length(.)) / 1000) %>% 
   st_drop_geometry()
 
 # Juntar informações para criar o relatório final
@@ -49,33 +49,32 @@ relatorio_desvios <- trips_desvio %>%
   left_join(select(gtfs_desvio$agency, agency_id, agency_name), 
             by = "agency_id") %>%
   left_join(shapes_sf, by = "shape_id") %>%
-  # Criar uma linha por combinação de serviço + desvio + sentido
-  # Como cada desvio tem apenas 1 viagem, pegamos a extensão diretamente
   mutate(
-    extensao_ida = ifelse(direction_id == '0', extensao, NA),
-    extensao_volta = ifelse(direction_id == '1', extensao, NA)
+    Sentido = case_when(
+      as.character(direction_id) == "0" ~ "Ida",
+      as.character(direction_id) == "1" ~ "Volta",
+      TRUE ~ "Circular"
+    )
   ) %>%
-  # Agrupar por serviço e desvio para consolidar ida e volta
-  group_by(trip_short_name, desvio, route_long_name, agency_name) %>%
+  # Uma linha por serviço + evento + sentido
+  group_by(trip_short_name, route_long_name, agency_name, Sentido, desvio) %>%
   summarise(
-    extensao_ida = sum(extensao_ida, na.rm = TRUE),
-    extensao_volta = sum(extensao_volta, na.rm = TRUE),
+    Extensão = sprintf("%.3f", round(sum(extensao, na.rm = TRUE), 3)),
     .groups = "drop"
   ) %>%
-  # Selecionar e renomear colunas finais
   select(
     Serviço = trip_short_name,
     Vista = route_long_name,
     Consórcio = agency_name,
-    `Extensão de Ida` = extensao_ida,
-    `Extensão de Volta` = extensao_volta,
+    Sentido,
+    Extensão,
     Evento = desvio
   ) %>%
-  # Ordenar por serviço e depois por desvio
-  arrange(Serviço, Evento)
+  # Ordenar por serviço, evento e sentido
+  arrange(Serviço, Evento, Sentido)
 
 # Salvar o arquivo
 fwrite(relatorio_desvios, 
        paste0("C:/R_SMTR/dados/os/os_", ano_gtfs, "-", mes_gtfs, "-", quinzena_gtfs, "_excep.csv"),
-       sep = ';', 
-       dec = ',')
+       sep = ',', 
+       dec = '.')
