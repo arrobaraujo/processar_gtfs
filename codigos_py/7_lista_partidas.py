@@ -15,8 +15,9 @@ tipos_dia = ['du', 'sab', 'dom']
 linhas_excluir = ["SE867"]
 
 # Pasta de saída
-pasta_saida = "../../resultados/partidas"
-os.makedirs(pasta_saida, exist_ok=True)
+from pathlib import Path
+pasta_saida = (Path(__file__).resolve().parent / "../../resultados/partidas").resolve()
+pasta_saida.mkdir(parents=True, exist_ok=True)
 
 print("\n==========================================================")
 print("INICIANDO PROCESSAMENTO DE PARTIDAS")
@@ -243,14 +244,26 @@ print("==========================================================\n")
 
 if consolidado_lista:
     df_final = pd.concat(consolidado_lista, ignore_index=True)
+    
+    # Parquet on Windows (pyarrow/fastparquet) throws [Errno 22] Invalid argument when allocating memory
+    # for massive mixed-type object columns (like str + NaN + Timedeltas). Coercing all objects to strict string.
+    for col in df_final.columns:
+        if df_final[col].dtype == 'object' or pd.api.types.is_timedelta64_dtype(df_final[col]):
+            df_final[col] = df_final[col].fillna("").astype(str)
+            
     # Salvando em Parquet como consolidado principal e CSV total
-    df_final.to_csv(os.path.join(pasta_saida, "partidas.csv"), index=False)
+    from pathlib import Path
+    pasta_out = Path(pasta_saida).resolve()
+    
+    csv_path = str(pasta_out / "partidas.csv")
+    parq_path = str(pasta_out / "partidas.parquet")
+    
+    df_final.to_csv(csv_path, index=False)
     # Requer pyarrow
-    try:
-        df_final.to_parquet(os.path.join(pasta_saida, "partidas.parquet"), index=False)
-        print("✓ Arquivos finais salvos: partidas.csv e partidas.parquet")
-    except ImportError:
-        print("Aviso: 'pyarrow' ou 'fastparquet' não instalado. Não foi possível gerar partidas.parquet.")
+    with open(parq_path, 'wb') as f:
+        df_final.to_parquet(f, engine='pyarrow', index=False)
+        
+    print("✓ Arquivos finais salvos: partidas.csv e partidas.parquet")
     
     print(f"✓ Total de linhas processadas: {len(df_final)}")
 else:
