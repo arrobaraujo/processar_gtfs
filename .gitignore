@@ -8,3 +8,14 @@
 .quarto
 .RData
 .RDatatemp
+.RDataTmp
+.RDataTmp/
+
+# Python / Virtual Environments
+.venv/
+__pycache__/
+*.pyc
+
+# Scripts output / Logs
+error_log.txt
+shapes_invalidos_com_trips.csv
