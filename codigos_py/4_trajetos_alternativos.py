@@ -5,6 +5,8 @@ import io
 import os
 from pathlib import Path
 import warnings
+import geopandas as gpd
+from shapely.geometry import LineString
 
 warnings.filterwarnings('ignore')
 
@@ -68,40 +70,28 @@ shapes_afetados = trips_desvio['shape_id'].dropna().unique()
 df_shapes_desvio = df_shapes[df_shapes['shape_id'].isin(shapes_afetados)].copy()
 
 # ==============================================================================
-# CALCULAR EXTENSÕES DOS SHAPES (Haversine Vectorizado)
+# CALCULAR EXTENSÕES DOS SHAPES (GIS - EPSG:31983)
 # ==============================================================================
-print("Calculando distâncias dos percursos usando Fórmula de Haversine...")
+print("Calculando distâncias dos percursos via GIS (EPSG:31983)...")
 df_shapes_desvio['shape_pt_lat'] = pd.to_numeric(df_shapes_desvio['shape_pt_lat'], errors='coerce')
 df_shapes_desvio['shape_pt_lon'] = pd.to_numeric(df_shapes_desvio['shape_pt_lon'], errors='coerce')
 df_shapes_desvio['shape_pt_sequence'] = pd.to_numeric(df_shapes_desvio['shape_pt_sequence'], errors='coerce')
 
 df_shapes_desvio.sort_values(by=['shape_id', 'shape_pt_sequence'], inplace=True)
 
-# Calculate Havensine distance between consecutive points in km
-def haversine_vectorized(lat1, lon1, lat2, lon2):
-    R = 6371.0  # Earth radius in kilometers
-    lat1_rad, lon1_rad = np.radians(lat1), np.radians(lon1)
-    lat2_rad, lon2_rad = np.radians(lat2), np.radians(lon2)
-    
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-    
-    a = np.sin(dlat / 2.0)**2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2.0)**2
-    c = 2 * np.arcsin(np.sqrt(a))
-    return R * c
+# Generate LineStrings
+def create_linestring(group):
+    coords = list(zip(group['shape_pt_lon'], group['shape_pt_lat']))
+    return LineString(coords)
 
-# Shift coordinates to calculate distances
-df_shapes_desvio['lat_prev'] = df_shapes_desvio.groupby('shape_id')['shape_pt_lat'].shift(1)
-df_shapes_desvio['lon_prev'] = df_shapes_desvio.groupby('shape_id')['shape_pt_lon'].shift(1)
+line_geometries = df_shapes_desvio.groupby('shape_id').apply(create_linestring).reset_index(name='geometry')
+gdf_shapes_desvio = gpd.GeoDataFrame(line_geometries, geometry='geometry', crs="EPSG:4326")
 
-# Calculate step distances - first points of each shape will be NaN
-df_shapes_desvio['dist_step_km'] = haversine_vectorized(
-    df_shapes_desvio['lat_prev'], df_shapes_desvio['lon_prev'],
-    df_shapes_desvio['shape_pt_lat'], df_shapes_desvio['shape_pt_lon']
-)
+# Project and calculate length in km
+gdf_shapes_proj = gdf_shapes_desvio.to_crs(epsg=31983)
+gdf_shapes_proj['extensao'] = gdf_shapes_proj.geometry.length / 1000.0
 
-shapes_extensao = df_shapes_desvio.groupby('shape_id')['dist_step_km'].sum().reset_index()
-shapes_extensao.rename(columns={'dist_step_km': 'extensao'}, inplace=True)
+shapes_extensao = gdf_shapes_proj[['shape_id', 'extensao']].copy()
 
 # ==============================================================================
 # GERAR RELATÓRIO

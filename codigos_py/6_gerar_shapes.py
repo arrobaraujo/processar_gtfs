@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore', category=UserWarning) # Ignores some shapely w
 # ==============================================================================
 ano_gtfs = "2026"
 mes_gtfs = "03"
-quinzena_gtfs = "04"
+quinzena_gtfs = "05"
 
 endereco_gtfs_combi = f"../../dados/gtfs/{ano_gtfs}/gtfs_rio-de-janeiro_pub.zip"
 pasta_shape_sppo = f"../../dados/shapes/{ano_gtfs}"
@@ -244,18 +244,25 @@ if not df_stops.empty and not df_stop_times.empty:
     gtfs_stops_filt['geometry'] = gtfs_stops_filt.apply(create_point, axis=1)
     gdf_pontos = gpd.GeoDataFrame(gtfs_stops_filt, geometry='geometry', crs="EPSG:4326")
     
-    # Convert long column names to be Safe for SHP limits
-    # stop_id, stop_name, stop_desc, stop_lat, stop_lon, zone_id, stop_url, location_type, parent_station
-    
     nome_pontos = f"shapes_pontos_{ano_gtfs}-{mes_gtfs}-{quinzena_gtfs}Q"
     endereco_pontos_shp = os.path.join(pasta_shape_sppo, f"{nome_pontos}.shp")
     endereco_pontos_gpkg = os.path.join(pasta_shape_sppo, f"{nome_pontos}.gpkg")
     
-    gdf_pontos.to_file(endereco_pontos_shp, driver='ESRI Shapefile', engine='pyogrio')
+    # Shapefile version (rename for 10-char limit)
+    gdf_pontos_shp = gdf_pontos.copy()
+    gdf_pontos_shp.rename(columns={
+        'location_type': 'loc_type',
+        'parent_station': 'parent_sta',
+        'stop_timezone': 'timezone',
+        'wheelchair_boarding': 'wheelchair',
+        'platform_code': 'platform'
+    }, inplace=True)
+    
+    gdf_pontos_shp.to_file(endereco_pontos_shp, driver='ESRI Shapefile', engine='pyogrio')
     gdf_pontos.to_file(endereco_pontos_gpkg, driver='GPKG', engine='pyogrio')
     
-    print(f"✓ Salvo {nome_pontos}.shp")
-    print(f"✓ Salvo {nome_pontos}.gpkg")
+    print(f"✓ Salvo {nome_pontos}.shp (colunas ajustadas para o limite de 10 caracteres)")
+    print(f"✓ Salvo {nome_pontos}.gpkg (com nomes de colunas originais)")
 else:
     print("Aviso: stops.txt não disponível ou vazio.")
 

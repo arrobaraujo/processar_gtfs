@@ -3,6 +3,8 @@ import numpy as np
 import zipfile
 import os
 import time
+import geopandas as gpd
+from shapely.geometry import LineString
 
 # ============================================================================
 # CONFIGURAÇÕES INICIAIS
@@ -32,7 +34,7 @@ if not os.path.exists(endereco_gtfs):
 
 gtfs = {}
 with zipfile.ZipFile(endereco_gtfs, 'r') as z:
-    for fname in ['routes.txt', 'trips.txt', 'stop_times.txt', 'frequencies.txt', 'agency.txt']:
+    for fname in ['routes.txt', 'trips.txt', 'stop_times.txt', 'frequencies.txt', 'agency.txt', 'shapes.txt']:
         if fname in z.namelist():
             with z.open(fname) as f:
                 gtfs[fname.split('.')[0]] = pd.read_csv(f, dtype=str)
@@ -42,6 +44,7 @@ df_trips = gtfs['trips']
 df_st = gtfs['stop_times']
 df_freq = gtfs.get('frequencies', pd.DataFrame())
 df_agency = gtfs.get('agency', pd.DataFrame())
+df_shapes = gtfs.get('shapes', pd.DataFrame())
 
 print(f"  ✓ GTFS carregado: {len(df_routes)} rotas, {len(df_trips)} trips")
 
@@ -79,20 +82,36 @@ def timedelta_to_horario(td):
     s = total_seconds % 60
     return f"{h:02d}:{m:02d}:{s:02d}"
 
-# Merge de extensoes - since we can't guarantee 6 generated gpkgs are ready globally we approximate shapes or use 0
-print("\nAviso: As extensões exatas (shapes) exigem EPSG:31983 processado. Simplificando via coluna shape_dist_traveled se existir.")
-extensoes = {}
-if 'shape_dist_traveled' in df_st.columns:
-    df_st['shape_dist_num'] = pd.to_numeric(df_st['shape_dist_traveled'], errors='coerce')
-    df_st_max = df_st.groupby('trip_id')['shape_dist_num'].max().reset_index()
-    df_st_max.rename(columns={'shape_dist_num': 'extensao'}, inplace=True)
+# ============================================================================
+# CÁLCULO DE EXTENSÕES (GIS - EPSG:31983)
+# ============================================================================
+print("\nETAPA 2: Calculando extensões via GIS (EPSG:31983)...")
+
+if not df_shapes.empty:
+    # Convert points to coordinates
+    df_shapes['shape_pt_lon'] = pd.to_numeric(df_shapes['shape_pt_lon'], errors='coerce')
+    df_shapes['shape_pt_lat'] = pd.to_numeric(df_shapes['shape_pt_lat'], errors='coerce')
+    df_shapes['shape_pt_sequence'] = pd.to_numeric(df_shapes['shape_pt_sequence'], errors='coerce')
+    df_shapes.sort_values(by=['shape_id', 'shape_pt_sequence'], inplace=True)
     
-    df_trips_ext = df_trips.merge(df_st_max, on='trip_id', how='left')
-    df_trips_ext['extensao'] = df_trips_ext['extensao'].fillna(0).astype(int)
+    # Generate LineStrings
+    def create_linestring(group):
+        coords = list(zip(group['shape_pt_lon'], group['shape_pt_lat']))
+        return LineString(coords)
     
-    # Average grouped extension per direction to match the script's intention:
+    line_geometries = df_shapes.groupby('shape_id').apply(create_linestring).reset_index(name='geometry')
+    gdf_shapes = gpd.GeoDataFrame(line_geometries, geometry='geometry', crs="EPSG:4326")
+    
+    # Project and calculate length
+    gdf_shapes_proj = gdf_shapes.to_crs(epsg=31983)
+    gdf_shapes_proj['extensao'] = gdf_shapes_proj.geometry.length.astype(int)
+    
+    # Merge with trips to get service/direction context
+    df_trips_ext = df_trips.merge(gdf_shapes_proj[['shape_id', 'extensao']], on='shape_id', how='left')
     extensoes_df = df_trips_ext.groupby(['trip_short_name', 'direction_id', 'route_id'])['extensao'].max().reset_index()
+    print(f"  ✓ Extensões calculadas para {len(extensoes_df)} itinerários")
 else:
+    print("  ⚠️ shapes.txt não encontrado. Extensões ficarão zeradas.")
     extensoes_df = pd.DataFrame(columns=['trip_short_name', 'direction_id', 'route_id', 'extensao'])
 
 consolidado_lista = []
@@ -197,7 +216,9 @@ for current_tipo_dia in tipos_dia:
     # Calcular faixas
     def get_faixa(td):
         if pd.isna(td): return ""
-        horas = int(td.total_seconds()) // 3600
+        total_horas = int(td.total_seconds()) // 3600
+        horas = total_horas % 24
+        
         if horas < 1: return "00:00-01:00"
         if horas < 2: return "01:00-02:00"
         if horas < 3: return "02:00-03:00"
@@ -211,8 +232,7 @@ for current_tipo_dia in tipos_dia:
         if horas < 21: return "18:00-21:00"
         if horas < 22: return "21:00-22:00"
         if horas < 23: return "22:00-23:00"
-        if horas < 24: return "23:00-24:00"
-        return "24:00+"
+        return "23:00-24:00"
         
     viagens_completo['faixa'] = viagens_completo['start_time'].apply(get_faixa)
     

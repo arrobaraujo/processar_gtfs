@@ -23,8 +23,8 @@ with zipfile.ZipFile(end_gtfs, 'r') as z:
         trips = pd.read_csv(f)
 
 # Lines to run
-linhas_rodar = ["LECD142"]
-services_to_run = ["S_REG", "D_REG"] # "U_REG"
+linhas_rodar = ["249"]
+services_to_run = ["U_REG","S_REG", "D_REG"] # 
 
 # Process trips first: keep only needed columns and filter by requested lines
 trips_filtered = trips[['trip_id', 'trip_short_name', 'trip_headsign', 'service_id']]
