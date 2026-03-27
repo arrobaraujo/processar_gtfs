@@ -36,7 +36,7 @@ if not os.path.exists(endereco_gtfs_combi):
 
 gtfs = {}
 with zipfile.ZipFile(endereco_gtfs_combi, 'r') as z:
-    for fname in ['shapes.txt', 'trips.txt', 'routes.txt', 'agency.txt', 'stops.txt', 'stop_times.txt']:
+    for fname in ['shapes.txt', 'trips.txt', 'routes.txt', 'agency.txt', 'stops.txt', 'stop_times.txt', 'fare_attributes.txt', 'fare_rules.txt']:
         if fname in z.namelist():
             with z.open(fname) as f:
                 gtfs[fname.split('.')[0]] = pd.read_csv(f, dtype=str)
@@ -47,6 +47,8 @@ df_routes = gtfs['routes']
 df_agency = gtfs.get('agency', pd.DataFrame())
 df_stops = gtfs.get('stops', pd.DataFrame())
 df_stop_times = gtfs.get('stop_times', pd.DataFrame())
+df_fare_rules = gtfs.get('fare_rules', pd.DataFrame())
+df_fare_attr = gtfs.get('fare_attributes', pd.DataFrame())
 
 # ==============================================================================
 # ORDENAÇÃO DE SHAPES E VERIFICAÇÃO DE PONTOS INVÁLIDOS
@@ -171,8 +173,18 @@ shapes_ext = shapes_ext.merge(descricao_desvios, on='cod_desvio', how='left').dr
 
 # Merge with trips and routes
 shapes_ext = shapes_ext.merge(trips_join, on='shape_id', how='left')
-df_routes_sub = df_routes[['route_id', 'agency_id', 'route_type']]
+df_routes_sub = df_routes[['route_id', 'agency_id', 'route_type', 'route_desc']]
 shapes_ext = shapes_ext.merge(df_routes_sub, on='route_id', how='left')
+shapes_ext.rename(columns={'route_desc': 'descricao'}, inplace=True)
+
+# Merge Fares
+if not df_fare_rules.empty and not df_fare_attr.empty:
+    df_fares = df_fare_rules.merge(df_fare_attr[['fare_id', 'price']], on='fare_id', how='left')
+    df_fares = df_fares[['route_id', 'price']].drop_duplicates(subset=['route_id'])
+    shapes_ext = shapes_ext.merge(df_fares, on='route_id', how='left')
+    shapes_ext.rename(columns={'price': 'tarifas'}, inplace=True)
+else:
+    shapes_ext['tarifas'] = np.nan
 
 # Type of route
 def get_tipo_rota(rt):
@@ -192,7 +204,14 @@ if not df_agency.empty:
 else:
     shapes_ext['consorcio'] = np.nan
 
+# Drop utility columns
 shapes_ext.drop(columns=['route_id', 'agency_id', 'route_type', 'service_id_original'], inplace=True, errors='ignore')
+
+# Hide detour column if all values are null/empty
+if 'descricao_desvio' in shapes_ext.columns:
+    if shapes_ext['descricao_desvio'].isna().all() or (shapes_ext['descricao_desvio'] == "").all():
+        print("Removendo coluna 'descricao_desvio' (sem desvios ativos)")
+        shapes_ext.drop(columns=['descricao_desvio'], inplace=True)
 
 # ==============================================================================
 # 4. EXPORTAR SHAPES (TRAJETOS)
@@ -202,8 +221,26 @@ os.makedirs(pasta_shape_sppo, exist_ok=True)
 
 # Shapefile version (rename for 10-char limit)
 shapes_ext_shp = shapes_ext.copy()
-shapes_ext_shp.rename(columns={'descricao_desvio': 'desvio'}, inplace=True)
-shapes_ext_shp = shapes_ext_shp[['servico', 'destino', 'direcao', 'tipo_dia', 'extensao', 'desvio', 'consorcio', 'tipo_rota', 'geometry']]
+
+mapeamento_shp = {
+    'servico': 'servico',
+    'destino': 'destino',
+    'direcao': 'direcao',
+    'tipo_dia': 'tipo_dia',
+    'extensao': 'extensao',
+    'consorcio': 'consorcio',
+    'tipo_rota': 'tipo_rota',
+    'descricao': 'descricao',
+    'tarifas': 'tarifas'
+}
+
+if 'descricao_desvio' in shapes_ext_shp.columns:
+    shapes_ext_shp.rename(columns={'descricao_desvio': 'desvio'}, inplace=True)
+    mapeamento_shp['desvio'] = 'desvio'
+
+# Select only desired columns that actually exist
+cols_shp = [c for c in mapeamento_shp.values() if c in shapes_ext_shp.columns]
+shapes_ext_shp = shapes_ext_shp[cols_shp + ['geometry']]
 
 nome_arquivo = f"shapes_trajetos_{ano_gtfs}-{mes_gtfs}-{quinzena_gtfs}Q"
 endereco_shp = os.path.join(pasta_shape_sppo, f"{nome_arquivo}.shp")
