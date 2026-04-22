@@ -10,7 +10,7 @@ BASE_RESULTADOS = Path("C:/R_SMTR/resultados")
 
 ano_gtfs = "2026"
 mes_gtfs = "03"
-quinzena_gtfs = "04"
+quinzena_gtfs = "04" #ESTUDO, NÃO CONSIDERAR MAIS QUINZENA!!!!
 
 # GTFS file path
 end_gtfs = BASE_DADOS / f"gtfs/{ano_gtfs}/gtfs_combi_{ano_gtfs}-{mes_gtfs}-{quinzena_gtfs}Q.zip"
