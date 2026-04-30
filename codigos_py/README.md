@@ -36,8 +36,9 @@ Os 7 scripts formam um **pipeline sequencial** de processamento de dados GTFS pa
 
 ---
 
-~~## 3️⃣ `3_desvios_nao-utilizar.py`~~ Este código está datado e não tem mais utilidade.
-~~**Objetivo:** Ajustar o calendário (`calendar`, `calendar_dates`) e os `service_id` das viagens do GTFS para refletir **desvios operacionais temporários** (eventos, obras, etc.).~~
+Este código está datado e não tem mais utilidade.
+~~## 3️⃣ `3_desvios_nao-utilizar.py` 
+**Objetivo:** Ajustar o calendário (`calendar`, `calendar_dates`) e os `service_id` das viagens do GTFS para refletir **desvios operacionais temporários** (eventos, obras, etc.).~~
 
 ~~| Item | Descrição |
 |------|-----------|
