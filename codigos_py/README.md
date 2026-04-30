@@ -36,10 +36,11 @@ Os 7 scripts formam um **pipeline sequencial** de processamento de dados GTFS pa
 
 ---
 
-## 3️⃣ `3_desvios.py`
-**Objetivo:** Ajustar o calendário (`calendar`, `calendar_dates`) e os `service_id` das viagens do GTFS para refletir **desvios operacionais temporários** (eventos, obras, etc.).
+Este código está datado e não tem mais utilidade.
+~~## 3️⃣ `3_desvios_nao-utilizar.py` 
+**Objetivo:** Ajustar o calendário (`calendar`, `calendar_dates`) e os `service_id` das viagens do GTFS para refletir **desvios operacionais temporários** (eventos, obras, etc.).~~
 
-| Item | Descrição |
+~~| Item | Descrição |
 |------|-----------|
 | **Entrada** | GTFS processado (`_PROC.zip`) + CSVs de insumos locais: `insumos_desvios/linhas_desvios.csv` (quais linhas são afetadas) e `insumos_desvios/descricao_desvios.csv` (datas e códigos dos desvios) |
 | **Processamento** | 1. Filtra desvios ativos (data_inicio < hoje < data_fim) |
@@ -48,7 +49,7 @@ Os 7 scripts formam um **pipeline sequencial** de processamento de dados GTFS pa
 |  | 4. Gera entradas em `calendar_dates` para ativar/desativar serviços nas datas do evento |
 |  | 5. Filtra datas do calendário pelo período do `feed_info` |
 | **Saída** | Sobrescreve o GTFS processado com `trips.txt`, `calendar.txt` e `calendar_dates.txt` atualizados |
-| **Dependências** | `pandas`, `numpy`, `zipfile`, `gspread` (importado mas usa CSV local) |
+| **Dependências** | `pandas`, `numpy`, `zipfile`, `gspread` (importado mas usa CSV local) |~~
 
 ---
 
@@ -149,4 +150,4 @@ graph TD
 ```
 
 > [!NOTE]
-> O script **1** é independente (usa o GTFS combinado já pronto). Os scripts **2→3→5** formam o pipeline principal de construção do GTFS. Os scripts **4**, **6** e **7** são etapas de pós-processamento/exportação.
+> O script **1** é independente (usa o GTFS combinado já pronto). Os scripts **2→5→7** formam o pipeline principal de construção do GTFS. Os scripts **4**, e **6** são etapas de pós-processamento/exportação.
