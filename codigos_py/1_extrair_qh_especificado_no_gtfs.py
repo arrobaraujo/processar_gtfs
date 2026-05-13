@@ -27,6 +27,8 @@ with zipfile.ZipFile(end_gtfs, 'r') as z:
 
 # Lines to run
 linhas_rodar = ["249"]
+# Em vez de apenas linhas específicas, como ["249"], podemos pegar todas as linhas únicas do arquivo trips
+# linhas_rodar = trips['trip_short_name'].unique().tolist()
 services_to_run = ["U_REG","S_REG", "D_REG"] # 
 
 # Process trips first: keep only needed columns and filter by requested lines

@@ -19,3 +19,6 @@ __pycache__/
 # Scripts output / Logs
 error_log.txt
 shapes_invalidos_com_trips.csv
+
+# Outros
+CAPABILITIES_AND_AGENTS.md

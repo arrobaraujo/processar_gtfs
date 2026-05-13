@@ -4,11 +4,27 @@ Este repositório contém uma pipeline de processamento para dados GTFS (General
 
 A pipeline está implementada tanto em **Python** (`codigos_py/`) quanto em **R** (`codigos_R/`).
 
+
+# Criar ambiente virtual
+
+```bash
+python -m venv .venv
+```
+
+# Ativar ambiente virtual
+
+- Windows:
+  ```bash
+  .venv\Scripts\activate
+  ```
+
+
 ## 🚀 Pipeline de Processamento (7 Passos)
 
 O processamento é dividido em sete etapas sequenciais, cada uma representada por um script numerado:
 
 1.  **`1_extrair_qh_especificado_no_gtfs.py`**:
+    *   É usado apenas quando subimos um csv de quadro errado. Neste sentido, precisamos baixar o csv corrigido do GTFS anterior que estava correto.
     *   Extrai o Quadro de Horários (QH) diretamente dos arquivos `frequencies.txt` e `trips.txt` de um ZIP GTFS.
     *   Filtra por linhas e serviços específicos para gerar arquivos CSV individuais por serviço.
 2.  **`2_ajustar_stop_times.py`**:

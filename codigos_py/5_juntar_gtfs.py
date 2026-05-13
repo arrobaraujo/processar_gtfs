@@ -16,12 +16,20 @@ BASE_DADOS = Path("C:/R_SMTR/dados")
 
 ano_gtfs      = "2026"
 mes_gtfs      = "05"
-estudo_gtfs = "01" #ESTUDO, NÃO CONSIDERAR MAIS QUINZENA!!!!
+estudo_gtfs = "03" #ESTUDO, NÃO CONSIDERAR MAIS QUINZENA!!!!
 sufixo        = f"{ano_gtfs}-{mes_gtfs}-{estudo_gtfs}Q"
 
 endereco_sppo       = BASE_DADOS / f"gtfs/{ano_gtfs}/sppo_{sufixo}_PROC.zip"
 endereco_brt        = BASE_DADOS / f"gtfs/{ano_gtfs}/brt_{sufixo}_PROC.zip"
 endereco_gtfs_combi = BASE_DADOS / f"gtfs/{ano_gtfs}/gtfs_combi_{sufixo}.zip"
+
+# FILTRO DE LINHAS A EXCLUIR (usar trip_short_name)
+#linhas_excluir = ["SE100", "SE169", "SE238", "SE265", "SE298", "SE312", "SE324", "SE328", 
+#    "SE355", "SE363", "SE368", "SE383", "SE388", "SE393", "SE397", "SE399", 
+#    "SE410", "SE457", "SE474", "SE483", "SE550", "SE553", "SE554", "SEB232"  
+#]
+
+linhas_excluir = []
 
 pasta_substituicao_combi = BASE_DADOS / "insumos/gtfs_combi"
 pasta_substituicao_pub   = BASE_DADOS / "insumos/gtfs_pub"
@@ -50,11 +58,13 @@ def read_gtfs(zip_path):
 def write_gtfs(gtfs_dict, zip_path):
     log_msg(f"Salvando GTFS em: {zip_path}")
     os.makedirs(os.path.dirname(zip_path), exist_ok=True)
-    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
+    # Use no compression to avoid zlib errors with large files
+    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_STORED) as zout:
         for key, df in gtfs_dict.items():
             if not df.empty:
-                csv_str = df.to_csv(index=False)
-                zout.writestr(f"{key}.txt", csv_str)
+                csv_bytes = df.to_csv(index=False).encode('utf-8')
+                zout.writestr(f"{key}.txt", csv_bytes)
+
 
 def ajustar_service_id(df, col="service_id"):
     if col in df.columns:
@@ -243,6 +253,10 @@ trips_final_sppo = set(trips_manter) - set(trips_fantasma)
 
 # Filter trips
 gtfs_sppo['trips'] = gtfs_sppo['trips'][gtfs_sppo['trips']['trip_id'].isin(trips_final_sppo)]
+
+if 'trip_short_name' in gtfs_sppo['trips'].columns:
+    gtfs_sppo['trips'] = gtfs_sppo['trips'][~gtfs_sppo['trips']['trip_short_name'].isin(linhas_excluir)]
+
 # Call clean_gtfs to cascade removal of unused stop_times, routes, shapes, etc
 gtfs_sppo = clean_gtfs(gtfs_sppo)
 
@@ -267,6 +281,9 @@ gtfs_brt['routes'] = gtfs_brt['routes'][gtfs_brt['routes']['route_short_name'].i
 gtfs_brt['trips'] = ajustar_service_id(gtfs_brt['trips'])
 if 'calendar' in gtfs_brt: gtfs_brt['calendar'] = ajustar_service_id(gtfs_brt['calendar'])
 if 'feed_info' in gtfs_brt: gtfs_brt['feed_info'] = pd.DataFrame(columns=gtfs_brt['feed_info'].columns) # clear feed_info
+
+if 'trip_short_name' in gtfs_brt['trips'].columns:
+    gtfs_brt['trips'] = gtfs_brt['trips'][~gtfs_brt['trips']['trip_short_name'].isin(linhas_excluir)]
 
 df_st_brt = gtfs_brt['stop_times']
 mask_vazios_brt = df_st_brt['arrival_time'].isna() | (df_st_brt['arrival_time'] == "") | df_st_brt['departure_time'].isna() | (df_st_brt['departure_time'] == "")
